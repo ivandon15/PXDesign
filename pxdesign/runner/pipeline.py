@@ -347,6 +347,11 @@ def main(argv=None):
         save_config(configs, os.path.join(configs.dump_dir, "config.yaml"))
         with open(configs.input_json_path, "r") as f:
             orig_inputs = json.load(f)
+        # Propagate cyclic flag from input JSON into eval configs
+        cyclic = (orig_inputs[0].get("generation") or [{}])[0].get("cyclic", False) if orig_inputs else False
+        if cyclic:
+            configs.eval.binder.is_cyclic = True
+            configs.eval.binder.tools.af2.is_cyclic = True
         for x in orig_inputs:
             convert_to_bioassembly_dict(x, configs.dump_dir)
         configs.input_json_path = os.path.join(configs.dump_dir, "pipeline_input.json")
