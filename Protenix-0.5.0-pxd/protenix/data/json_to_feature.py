@@ -17,6 +17,17 @@ import logging
 
 import numpy as np
 import torch
+
+
+def _compute_cyclic_offset(L: int) -> np.ndarray:
+    """Shortest-path signed distance on a ring graph of length L."""
+    i = np.arange(L)
+    ij = np.stack([i, i + L], -1)
+    offset = i[:, None] - i[None, :]
+    c_offset = np.abs(ij[:, None, :, None] - ij[None, :, None, :]).min((2, 3))
+    a = c_offset < np.abs(offset)
+    c_offset[a] = -c_offset[a]
+    return (c_offset * np.sign(offset)).astype(np.int32)
 from biotite.structure import AtomArray
 
 from protenix.data.constraint_featurizer import ConstraintFeatureGenerator
@@ -337,6 +348,26 @@ class SampleDictToFeatures:
 
         # Add additional features for design
         feature_dict = self.get_design_features(atom_array, feature_dict)
+
+        # Cyclic binder: inject ring-graph shortest-path offset for binder tokens
+        cyclic = False
+        for seq in self.single_sample_dict.get("sequences", []):
+            pc = seq.get("proteinChain", {})
+            if pc.get("sequence_type") == "design" and pc.get("cyclic", False):
+                cyclic = True
+                break
+
+        if cyclic:
+            asym_id = feature_dict["asym_id"]  # [N_token]
+            binder_indices = (asym_id == asym_id.max()).nonzero(as_tuple=True)[0]
+            L = int(binder_indices.shape[0])
+            N_total = int(asym_id.shape[0])
+            cyc_block = torch.from_numpy(_compute_cyclic_offset(L))
+            binder_cyclic_offset = torch.zeros(N_total, N_total, dtype=torch.int32)
+            idx = binder_indices
+            binder_cyclic_offset[idx[:, None], idx[None, :]] = cyc_block
+            feature_dict["binder_cyclic_offset"] = binder_cyclic_offset
+
         return feature_dict, atom_array, token_array
 
     def get_design_features(self, atom_array, feature_dict):
