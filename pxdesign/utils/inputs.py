@@ -48,6 +48,7 @@ def parse_yaml_to_json(yaml_path, json_path=None):
     if "binder_length" not in cfg:
         raise ValueError("Missing required field: 'binder_length'")
     binder_length = int(cfg["binder_length"])
+    cyclic = bool(cfg.get("cyclic", False))
 
     # --- 2. Target Parsing ---
     target_cfg = cfg.get("target", {})
@@ -135,6 +136,7 @@ def parse_yaml_to_json(yaml_path, json_path=None):
                 "type": "protein",
                 "length": binder_length,
                 "count": 1,
+                "cyclic": cyclic,
             }
         ],
     }
