@@ -1,20 +1,3 @@
-pxdesign pipeline \
-  --preset extended \
-  -i /data/kelsey/code/PXDesign/projects/TL1A_260210.yaml \
-  -o /data/kelsey/code/PXDesign/projects/outputs \
-  --N_sample 2 \
-  --dtype fp32 \
-  --use_fast_ln True \
-  --use_deepspeed_evo_attention False
-
-pxdesign pipeline \
-  --preset extended \
-  -i /data/kelsey/code/PXDesign/examples/PDL1_quick_cyclic.yaml \
-  -o /data/kelsey/code/PXDesign/examples/cyclic_out \
-  --N_sample 2 \
-  --dtype fp32 \
-  --use_fast_ln True \
-  --use_deepspeed_evo_attention False
 <div align="center">
   <div>&nbsp;</div>
   <img src="assets/pxdesign_head.png" alt="PXDesign logo" width="75%">
@@ -165,13 +148,20 @@ Run `pxdesign pipeline --help` to ensure the installation is successful.
 
 #### Manual patch for cyclic evaluation support
 
-After installing PXDesignBench (`pxdbench==0.1.2`), apply the cyclic evaluation patch manually:
+After installing PXDesignBench (`pxdbench==0.1.2`), apply the cyclic evaluation patches manually:
 
 ```bash
-cp pxdbench_patches/base.py $(python -c "import pxdbench; import os; print(os.path.join(os.path.dirname(pxdbench.__file__), 'tasks', 'base.py'))")
+PXDBENCH=$(python -c "import pxdbench, os; print(os.path.dirname(pxdbench.__file__))")
+cp pxdbench_patches/base.py $PXDBENCH/tasks/base.py
+cp pxdbench_patches/ptx.py  $PXDBENCH/tools/ptx/ptx.py
 ```
 
-This patches `pxdbench/tasks/base.py` to pass the `is_cyclic` flag into `ProtenixFilter.predict()`, enabling cyclic-aware Protenix evaluation when `cyclic: true` is set in the YAML config.
+These patches enable cyclic-aware evaluation when `cyclic: true` is set in the YAML config:
+
+- `pxdbench/tasks/base.py` — `protenix_predict()` now passes `is_cyclic` to `prepare_json()` and `ProtenixFilter.predict()`
+- `pxdbench/tools/ptx/ptx.py` — `prepare_json()` sets `sequence_type="design"` and `cyclic=True` on the binder chain in the Protenix input JSON when `is_cyclic=True`, so `binder_cyclic_offset` is injected during data preprocessing
+
+The `binder_cyclic_offset` injection logic lives in `Protenix-0.5.0-pxd/protenix/data/json_to_feature.py` (already included in this repo), and is read by `RelativePositionEncoding` in `protenix/model/modules/embedders.py` to apply cyclic-aware positional encoding during Protenix structure prediction.
 
 
 ## 2. First-Time Downloads
