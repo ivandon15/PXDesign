@@ -264,6 +264,12 @@ class RelativePositionEncoding(nn.Module):
             - input_feature_dict["residue_index"][..., None, :]
         )
 
+        # Override binder-binder subblock with cyclic shortest-path offset
+        if "binder_cyclic_offset" in input_feature_dict:
+            cyc = input_feature_dict["binder_cyclic_offset"].to(rel_pos_index.device)
+            mask = cyc != 0
+            rel_pos_index = torch.where(mask, cyc.to(rel_pos_index.dtype), rel_pos_index)
+
         d_residue = torch.clip(
             input=rel_pos_index + self.r_max,
             min=0,
