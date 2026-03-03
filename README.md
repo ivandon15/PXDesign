@@ -1,3 +1,20 @@
+pxdesign pipeline \
+  --preset extended \
+  -i /data/kelsey/code/PXDesign/projects/TL1A_260210.yaml \
+  -o /data/kelsey/code/PXDesign/projects/outputs \
+  --N_sample 2 \
+  --dtype fp32 \
+  --use_fast_ln True \
+  --use_deepspeed_evo_attention False
+
+pxdesign pipeline \
+  --preset extended \
+  -i /data/kelsey/code/PXDesign/examples/PDL1_quick_cyclic.yaml \
+  -o /data/kelsey/code/PXDesign/examples/cyclic_out \
+  --N_sample 2 \
+  --dtype fp32 \
+  --use_fast_ln True \
+  --use_deepspeed_evo_attention False
 <div align="center">
   <div>&nbsp;</div>
   <img src="assets/pxdesign_head.png" alt="PXDesign logo" width="75%">
@@ -130,13 +147,31 @@ Run the script ``install.sh`` to set up an environment and install all dependenc
 Example:
 
 ```bash
-bash -x install.sh --env pxdesign --pkg_manager conda --cuda-version 12.1
+bash -x install.sh --env pxdesign --pkg_manager mamba --cuda-version 12.1
+
+runner/cli.py里面加上
+os.environ["PROTENIX_DATA_ROOT_DIR"] = "/data/share/databases/pxdesign_database/ccd_cache"
+
+mamba install -c nvidia -c conda-forge cuda-nvcc=12.1 cuda-libraries-dev=12.1 cudnn -y
+
+mv /home/kelsey/cutlass /data/kelsey/cutlass
+export CUTLASS_PATH=/data/kelsey/cutlass
 ```
 
 </details>
 
 
 Run `pxdesign pipeline --help` to ensure the installation is successful.
+
+#### Manual patch for cyclic evaluation support
+
+After installing PXDesignBench (`pxdbench==0.1.2`), apply the cyclic evaluation patch manually:
+
+```bash
+cp pxdbench_patches/base.py $(python -c "import pxdbench; import os; print(os.path.join(os.path.dirname(pxdbench.__file__), 'tasks', 'base.py'))")
+```
+
+This patches `pxdbench/tasks/base.py` to pass the `is_cyclic` flag into `ProtenixFilter.predict()`, enabling cyclic-aware Protenix evaluation when `cyclic: true` is set in the YAML config.
 
 
 ## 2. First-Time Downloads
@@ -171,7 +206,7 @@ On the **first run**, PXDesign will automatically perform the following **model 
   - mini_tmpl
 
 Default checkpoint path: ``./release_data/checkpoint``, which can be overridden via ``--load_checkpoint_dir`` (defined in ``pxdesign.configs.configs_infer.py``).
-
+`export CHECKPOINT_DIR=/custom/path/to/checkpoint`.
 </details>
 
 <br>
