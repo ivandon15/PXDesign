@@ -32,13 +32,16 @@ logger = logging.getLogger(__name__)
 def _compute_cyclic_offset(L: int) -> np.ndarray:
     """Shortest-path signed distance on a ring graph of length L.
 
-    For a linear chain: offset[0, L-1] = -(L-1)
-    For a cyclic chain: offset[0, L-1] = -1  (they are neighbors on the ring)
+    Matches BindCraft add_cyclic_offset semantics:
+      offset[i, j] = signed shortest-path distance from j to i on the ring.
+      E.g. for L=6: offset[0, 5] = +1 (residue 0 is 1 step after residue 5).
     """
     i = np.arange(L)
     ij = np.stack([i, i + L], -1)
     offset = i[:, None] - i[None, :]
     c_offset = np.abs(ij[:, None, :, None] - ij[None, :, None, :]).min((2, 3))
+    a = c_offset < np.abs(offset)
+    c_offset[a] = -c_offset[a]
     return (c_offset * np.sign(offset)).astype(np.int32)
 
 
