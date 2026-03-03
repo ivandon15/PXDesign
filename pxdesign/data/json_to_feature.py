@@ -29,6 +29,19 @@ from pxdesign.data.utils import int_to_letters
 logger = logging.getLogger(__name__)
 
 
+def _compute_cyclic_offset(L: int) -> np.ndarray:
+    """Shortest-path signed distance on a ring graph of length L.
+
+    For a linear chain: offset[0, L-1] = -(L-1)
+    For a cyclic chain: offset[0, L-1] = -1  (they are neighbors on the ring)
+    """
+    i = np.arange(L)
+    ij = np.stack([i, i + L], -1)
+    offset = i[:, None] - i[None, :]
+    c_offset = np.abs(ij[:, None, :, None] - ij[None, :, None, :]).min((2, 3))
+    return (c_offset * np.sign(offset)).astype(np.int32)
+
+
 class SampleDictToFeatures:
     def __init__(self, single_sample_dict):
         self.single_sample_dict = single_sample_dict
@@ -362,6 +375,24 @@ class SampleDictToFeatures:
 
         # Add additional features for design
         feature_dict = self.get_design_features(atom_array, feature_dict)
+
+        # Cyclic binder: inject ring-graph shortest-path offset for binder tokens
+        cyclic = False
+        for seq in self.single_sample_dict.get("sequences", []):
+            pc = seq.get("proteinChain", {})
+            if pc.get("sequence_type") == "design" and pc.get("cyclic", False):
+                cyclic = True
+                break
+
+        if cyclic:
+            N_total = int(condi_token_mask.shape[0])
+            binder_indices = (~condi_token_mask).nonzero(as_tuple=True)[0]
+            L = int(binder_indices.shape[0])
+            cyc_block = torch.from_numpy(_compute_cyclic_offset(L))  # [L, L]
+            binder_cyclic_offset = torch.zeros(N_total, N_total, dtype=torch.int32)
+            idx = binder_indices
+            binder_cyclic_offset[idx[:, None], idx[None, :]] = cyc_block
+            feature_dict["binder_cyclic_offset"] = binder_cyclic_offset
 
         return feature_dict
 
