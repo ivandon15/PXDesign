@@ -169,6 +169,6 @@ wandb/
 output*/
 release_data/
 tool_weights/
-Protenix-0.5.0-pxd/
+# Protenix-0.5.0-pxd/ -- tracked intentionally
 examples/
 projects/
