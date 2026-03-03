@@ -321,6 +321,7 @@ class BaseTask(ABC):
             binder_chain_idx=binder_chain_idx,
             orig_seqs=orig_seqs,
             use_template=ptx_cfg.get("use_template", False),
+            is_cyclic=self.cfg.get("is_cyclic", False),
         )
         pred_pdb_paths = ptx_filter.predict(
             input_json_path=json_path,
