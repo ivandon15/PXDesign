@@ -341,12 +341,14 @@ class InferenceDataset(Dataset):
             assert "sequence" not in gen_seq_dict
             length = gen_seq_dict["length"]
             count = gen_seq_dict["count"]
+            cyclic = gen_seq_dict.get("cyclic", False)
             one_dict = {
                 "proteinChain": {
                     "sequence": "j" * length,
                     "count": count,
                     "sequence_type": "design",
                     "use_msa": False,
+                    "cyclic": cyclic,
                 }
             }
             json_dict["sequences"].append(one_dict)
